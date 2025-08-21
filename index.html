@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crystal Quest (Tiny Clone)</title>
     <style>
-      html, body { height: 100%; margin: 0; background: #0b0f14; color: #e6f1ff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-      #game { display: block; width: 100vw; height: 100vh; background: radial-gradient(ellipse at center, #0e1420 0%, #06080c 100%); }
+      html, body { height: 100%; margin: 0; background: #0b0f14; color: #e6f1ff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; overscroll-behavior: none; }
+      body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+      #game { display: block; width: 100vw; height: 100vh; height: 100dvh; background: radial-gradient(ellipse at center, #0e1420 0%, #06080c 100%); touch-action: none; -webkit-tap-highlight-color: transparent; }
       .overlay { position: fixed; left: 12px; bottom: 12px; font-size: 12px; opacity: 0.7; }
       a, a:visited { color: #8dd2ff; text-decoration: none; border-bottom: 1px dotted #8dd2ff; }
       .debug-panel { position: fixed; top: 12px; right: 12px; width: 280px; background: rgba(20,26,34,0.95); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); padding: 10px 12px; font-size: 12px; backdrop-filter: blur(4px); color: #e6f1ff; display: none; z-index: 10; }
@@ -17,11 +18,20 @@
       .debug-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
       .debug-footer button { background: #1a2430; color: #e6f1ff; border: 1px solid rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
       .debug-footer button:hover { background: #213041; }
+
+      .mobile-controls { position: fixed; right: 12px; bottom: 12px; display: none; gap: 8px; z-index: 9; }
+      .mobile-controls button { width: 40px; height: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12); background: rgba(20,26,34,0.9); color: #e6f1ff; cursor: pointer; font-size: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+      .mobile-controls button:active { transform: translateY(1px); }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
-    <div class="overlay">Controls: move mouse to steer, click to shoot, P pause, R restart, M mute, F1 debug</div>
+    <div id="controlHint" class="overlay">Controls: move mouse to steer, click to shoot, P pause, R restart, M mute, F1 debug</div>
+    <div id="mobileControls" class="mobile-controls" aria-hidden="true">
+      <button id="btnPause" title="Pause/Resume" aria-label="Pause or resume">⏸</button>
+      <button id="btnRestart" title="Restart" aria-label="Restart">↻</button>
+      <button id="btnMute" title="Mute" aria-label="Mute or unmute">🔇</button>
+    </div>
     <div id="debugPanel" class="debug-panel" aria-hidden="true"></div>
     <script src="src/game.js"></script>
   </body>

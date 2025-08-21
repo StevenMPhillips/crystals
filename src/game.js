@@ -19,6 +19,7 @@
     canvas.height = Math.floor(window.innerHeight);
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', resize);
   resize();
 
   // Utilities
@@ -36,13 +37,41 @@
 
   // Input
   const mouse = { x: canvas.width * 0.5, y: canvas.height * 0.5, down: false };
-  canvas.addEventListener('mousemove', (e) => {
+  function updateFromClientXY(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
-  });
-  canvas.addEventListener('mousedown', () => (mouse.down = true));
+    mouse.x = (clientX - rect.left) * (canvas.width / rect.width);
+    mouse.y = (clientY - rect.top) * (canvas.height / rect.height);
+  }
+  // Mouse (desktop)
+  canvas.addEventListener('mousemove', (e) => updateFromClientXY(e.clientX, e.clientY));
+  canvas.addEventListener('mousedown', (e) => { mouse.down = true; updateFromClientXY(e.clientX, e.clientY); });
   canvas.addEventListener('mouseup', () => (mouse.down = false));
+  // Pointer/touch (mobile and fallback)
+  let primaryPointerId = null;
+  const resumeAudio = () => { try { ensureAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); } catch {} };
+  canvas.addEventListener('pointerdown', (e) => {
+    if (primaryPointerId == null) primaryPointerId = e.pointerId;
+    if (e.pointerId === primaryPointerId) {
+      updateFromClientXY(e.clientX, e.clientY);
+      mouse.down = true;
+      resumeAudio();
+      if (state === 'menu' || state === 'gameover') startGame();
+    }
+    try { canvas.setPointerCapture(e.pointerId); } catch {}
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerId === primaryPointerId) updateFromClientXY(e.clientX, e.clientY);
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  function endPointer(e) {
+    if (e.pointerId === primaryPointerId) { mouse.down = false; primaryPointerId = null; }
+    try { canvas.releasePointerCapture(e.pointerId); } catch {}
+    if (e.cancelable) e.preventDefault();
+  }
+  canvas.addEventListener('pointerup', endPointer, { passive: false });
+  canvas.addEventListener('pointercancel', endPointer, { passive: false });
+  canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); });
   window.addEventListener('blur', () => (mouse.down = false));
 
   const keys = new Set();
@@ -182,6 +211,28 @@
 
   // Load any saved tuning on boot
   loadTuning();
+  // Mobile/touch UX helpers
+  const mobileUI = { active: false, btnPause: null, btnMute: null };
+  (function setupMobileUI(){
+    const isCoarse = (function(){
+      try { return window.matchMedia && window.matchMedia('(pointer: coarse)').matches; } catch { return 'ontouchstart' in window; }
+    })();
+    const hint = document.getElementById('controlHint');
+    const ctrls = document.getElementById('mobileControls');
+    mobileUI.btnPause = document.getElementById('btnPause');
+    const btnRestart = document.getElementById('btnRestart');
+    mobileUI.btnMute = document.getElementById('btnMute');
+    if (isCoarse) {
+      mobileUI.active = true;
+      if (hint) hint.textContent = 'Controls: drag to steer, hold to shoot. Tap ⏸ to pause, ↻ restart, 🔇 mute.';
+      if (ctrls) { ctrls.style.display = 'flex'; ctrls.setAttribute('aria-hidden', 'false'); }
+      if (mobileUI.btnPause) mobileUI.btnPause.addEventListener('click', () => { if (state === 'menu' || state === 'gameover') startGame(); else togglePause(); });
+      if (btnRestart) btnRestart.addEventListener('click', () => { resetGame(); });
+      if (mobileUI.btnMute) mobileUI.btnMute.addEventListener('click', () => { muted = !muted; });
+    } else {
+      if (hint) hint.textContent = 'Controls: move mouse to steer, click to shoot, P pause, R restart, M mute, F1 debug';
+    }
+  })();
 
   function resetGame() {
     level = 1; score = 0; lives = 3;
@@ -456,10 +507,19 @@
     // HUD
     drawHUD();
 
+    // Sync mobile UI buttons
+    if (mobileUI.active) {
+      if (mobileUI.btnPause) mobileUI.btnPause.textContent = (state === 'playing') ? '⏸' : '▶';
+      if (mobileUI.btnMute) mobileUI.btnMute.textContent = muted ? '🔊' : '🔇';
+    }
+
     // Menus
-    if (state === 'menu') drawCenterText('Crystal Quest — Tiny Clone', 'Press SPACE to start');
-    if (state === 'paused') drawCenterText('Paused', 'Press P to resume');
-    if (state === 'gameover') drawCenterText('Game Over', 'Press SPACE to retry');
+    const startSub = mobileUI.active ? 'Tap to start' : 'Press SPACE to start';
+    const pauseSub = mobileUI.active ? 'Tap ⏸ to resume' : 'Press P to resume';
+    const retrySub = mobileUI.active ? 'Tap to retry' : 'Press SPACE to retry';
+    if (state === 'menu') drawCenterText('Crystal Quest — Tiny Clone', startSub);
+    if (state === 'paused') drawCenterText('Paused', pauseSub);
+    if (state === 'gameover') drawCenterText('Game Over', retrySub);
   }
 
   function drawCenterText(title, subtitle) {
